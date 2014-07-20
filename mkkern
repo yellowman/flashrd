@@ -72,15 +72,7 @@ fi
 
 [ -z "$tmpmnt" ] && tmpmnt=$(c 0 mktemp -t -d mkkern.tmpmnt.XXXXXX)
 
-###
-#
-# remove option POOL_DEBUG from /usr/src/sys/conf/GENERIC (slower allocation!)
-# modify /usr/src/sys/arch/`uname -m`/conf/GENERIC
-
-grep -v POOL_DEBUG /usr/src/sys/conf/GENERIC > /usr/src/sys/conf/FLASHRD
-# if you want POOL_DEBUG, do this instead:
-#cp /usr/src/sys/conf/GENERIC /usr/src/sys/conf/FLASHRD
-
+cp /usr/src/sys/conf/GENERIC /usr/src/sys/conf/FLASHRD
 egrep -v ^config $kernsrc/conf/GENERIC | sed -e 's/GENERIC/FLASHRD/' > $kernsrc/conf/FLASHRD
 
 if [ `uname -m` == "i386" ]; then
