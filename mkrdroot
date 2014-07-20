@@ -225,7 +225,7 @@ echo
 
 c 2 cp etc/rc $tmpmntdir/etc/rc
 
-c 2 cp stand/rc $tmpmntdir/stand/rc
+c 2 sed "/^flashsoftdep=/s/flashsoftdep=\"\"/flashsoftdep=\"${flashsoftdep}\"/" stand/rc > $tmpmntdir/stand/rc && chmod 755 $tmpmntdir/stand/rc
 
 umountwait 1 $tmpmntdir
 

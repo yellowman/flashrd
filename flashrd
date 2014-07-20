@@ -9,7 +9,7 @@ arch=`uname -m`
 vers=1.6
 
 typeset -x device rootdevice blocks rdroot dest vnddirs vndsize
-typeset -x tardirs tmpfsdirs totalsize
+typeset -x tardirs tmpfsdirs totalsize flashsoftdep
 typeset -x bytessec vnd distloc tmpmnt TMPDIR elfrdsetrootdir
 
 device=vnd3				# least likely to conflict ?
@@ -17,6 +17,7 @@ rootdevice=vnd2				# used to mount flash vnd
 blocks=4600				# blocks to reserve for kernel ramdisk
 rdroot=rd.$arch-$date			# ramdisk root fs image
 dest=flashimg.$arch-$date		# final product
+flashsoftdep=""				# mount option for softdep /flash
 
 # See ./etc/rc.flashrd.sub to define tardirs, vnddirs, tmpfsdirs
 #
@@ -58,6 +59,7 @@ Write to disk image:
 
 Other options:
     -e "dir"    directory where elfrdsetroot.c is located
+    -fsd        mount /flash with softdep (helpful for slow flash media)
 
 EOF
 }
@@ -70,6 +72,7 @@ do
   -l) t2 "$2"; totalsize="$2"; shift 2;;
   -b) t2 "$2"; bytessec="$2"; shift 2;;
   -e) t2 "$2"; elfrdsetrootdir="$2"; shift 2;;
+  -fsd) flashsoftdep="softdep,"; shift;;
 
   --) shift; break;;
   -*) usage; exit 1;;
