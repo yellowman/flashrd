@@ -26,6 +26,7 @@ vnddirs="root bin etc sbin usr" # vnd0a, vnd0d, vnd0e, vnd0f, vnd0g
 set -A part a d e f g h i j k l m n o p
 vnd=vnd0
 disk=auto
+flashsoftdep=""
 
 export PATH=/bin:/sbin:/stand
 
@@ -127,7 +128,7 @@ if ! fsck -p /dev/$disk; then
   rdonly=",rdonly"
  fi
 fi
-if ! mount -o noatime,nodev,nosuid$rdonly /dev/$disk /flash; then
+if ! mount -o ${flashsoftdep}noatime,nodev,nosuid$rdonly /dev/$disk /flash; then
  echo bootstrap: fatal error mounting $disk to /flash
  exit 1
 fi
