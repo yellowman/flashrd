@@ -76,6 +76,13 @@ if [ ! -z "tardirs" ]; then
  done
 fi
 
+# Relocate resolv.conf from /etc to /var/db to allow updates by dhclient
+# It doesn't exist in a fresh set, but check in case it was pre-populated
+if [ -f ${distloc}/etc/resolv.conf ]; then
+  mv ${distloc}/etc/resolv.conf ${distloc}/var/db
+fi
+ln -s /var/db/resolv.conf ${distloc}/etc
+
 ###
 #
 # disktab dance
