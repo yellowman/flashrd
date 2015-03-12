@@ -234,13 +234,13 @@ for i in $vnddirs; do
   # random.seed rests at /flash/etc/random.seed
   ln -fs /flash/etc/random.seed ${tmpmntdir}/random.seed
 
-  if [ ! -f ${tmpmntdir}/myname ]; then
+  if [ ! -f ${tmpmntdir}/myname -o "$(grep noname.my.domain ${tmpmntdir}/myname 2>/dev/null)" ]; then
    # No name? Let's call it 'flashrd' for now...
    c 2 echo flashrd > ${tmpmntdir}/myname
 
    if [ -f ${tmpmntdir}/hosts ]; then
     # Add 'flashrd' to the hosts file
-    c 2 sed -e 's/localhost/localhost flashrd/' < ${tmpmntdir}/hosts > ${tmpmntdir}/hosts.new
+    c 2 sed -e 's/localhost/localhost\ flashrd/' < ${tmpmntdir}/hosts > ${tmpmntdir}/hosts.new
     c 2 mv ${tmpmntdir}/hosts.new ${tmpmntdir}/hosts
    else
     # Create a basic hosts file
