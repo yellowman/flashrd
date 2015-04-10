@@ -13,13 +13,13 @@
 # Crunchgen links
 #
 
-[ -z "$progs" ] && progs="ksh pax ls fsck fsck_ffs reboot init mount mount_ffs mount_vnd umount cp mv"
+[ -z "$progs" ] && progs="ksh fsck fsck_ffs init mount mount_ffs mount_vnd umount"
 
-[ -z "$standlink" ] && standlink="tar pax mount_vnd vnconfig umount"
+[ -z "$standlink" ] && standlink="mount_vnd vnconfig umount"
 
-[ -z "$binlink" ] && binlink="sh ksh ls cp mv"
+[ -z "$binlink" ] && binlink="sh ksh"
 
-[ -z "$sbinlink" ] && sbinlink="init mount mount_ffs fsck fsck_ffs reboot"
+[ -z "$sbinlink" ] && sbinlink="init mount mount_ffs fsck fsck_ffs"
 
 # Files to copy
 #
@@ -190,7 +190,6 @@ srcdirs /usr/src/bin /usr/src/sbin
 progs $progs
 ln ksh -sh       # init invokes the shell with "-sh" in argv[0]
 ln ksh sh
-ln pax tar
 ln mount_vnd vnconfig
 
 libs -lutil
