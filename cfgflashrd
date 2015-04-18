@@ -9,11 +9,8 @@ typeset -x TMPDIR
 # include vnddirs
 . ./etc/rc.flashrd.sub
 
-device=vnd3
-rootvnd=vnd2
 
 set -A part a d e f g h i j k l m n o p
-
 
 usage() {
  cat <<EOF
@@ -46,11 +43,17 @@ fi
 
 . ./flashrd.sub
 
+[ `id -u` != 0 ] && echo root required && exit 1
+
+getavailvnd 2
+device=${vndevices[0]}
+rootvnd=${vndevices[1]}
+
 while :
 do
  case $1 in
   -\?)		usage; exit 0;;
-  -d|-disk)	    t2 "$2"; disk="$2"; shift 2;;
+  -d|-disk)	t2 "$2"; disk="$2"; shift 2;;
   -i|-image)	t2 "$2"; image="$2"; shift 2;;
   -r|-rdroot)	t2 "$2"; rdfs="$2"; shift 2;;
   -c|-com0)	t2 "$2"; com0="$2"; shift 2;;
@@ -122,11 +125,6 @@ if [[ -n $tzfile ]]; then
   echo "Timezone file not found"
   exit 1
  fi
-fi
-
-if [ `id -u` != 0 ]; then
- echo Sorry, mount, vnconfig, and friends require root privileges
- exit 1
 fi
 
 if [ -z "$elfrdsetrootdir" ]; then
@@ -297,7 +295,6 @@ if [ ! -z "$com0" ]; then
  cat <<-EOF >$tmpmnt/etc/boot.conf
 	stty com0 $com0
 	set tty com0
-	set timeout 5
 	EOF
 fi
 
@@ -338,6 +335,8 @@ c 3 mount /dev/$device$etcpart $tmpmntvnd
 
 if [ ! -f $tmpmntvnd/.flashrd_version ]; then
  echo % missing etc/.flashrd_version, not flashrd image or \$vnddirs out of sync? what funky?
+else
+ echo % image flashrd_version $(cat $tmpmntvnd/.flashrd_version)
 fi
 
 if [ ! -z "$com0" ]; then
@@ -457,10 +456,20 @@ fi
 
 if [ ! -z "$dnsservers" ]; then
  echo Configuring resolv.conf for DNS servers $dnsservers
- c 4 "echo lookup file bind > $tmpmntvnd/resolv.conf"
+ resolv=$TMPDIR/resolv.conf
+ c 4 "echo lookup file bind > ${resolv}"
  for i in $dnsservers; do
-  c 4 "echo nameserver $i >> $tmpmntvnd/resolv.conf"
+  c 4 "echo nameserver $i >> ${resolv}"
  done
+ if [ -f $tmpmnt/var.tar ]; then
+  c 4 mkdir $TMPDIR/var-copy
+  c 4 tar xpf $tmpmnt/var.tar -C $TMPDIR/var-copy
+  c 4 mkdir -p $TMPDIR/var-copy/db
+  c 4 mv ${resolv} $TMPDIR/var-copy/db/resolv.conf
+  c 4 tar cf $tmpmnt/var.tar -C $TMPDIR/var-copy .
+ else
+  c 4 mv ${resolv} ${tmpmntvnd}/resolv.conf
+ fi
 else
  echo Failed to configure nameservers, you must manually configure /etc/resolv.conf
 fi
@@ -485,7 +494,7 @@ fi
 if [ ! -z "$keyboardencoding" ]; then
  testkeyboardencoding
  if [ $? == 0 ]; then
-  sed -e "s:.*keyboard.encoding.*:keyboard.encoding=$keyboardencoding            # use different keyboard encoding:" < $tmpmntvnd/wsconsctl.conf >> $TMPDIR/tmpwsconsctl
+  sed -e "s:.*keyboard.encoding.*:keyboard.encoding=$keyboardencoding            # use different keyboard encoding:" < $tmpmntvnd/examples/wsconsctl.conf >> $TMPDIR/tmpwsconsctl
   c 4 mv $TMPDIR/tmpwsconsctl $tmpmntvnd/wsconsctl.conf
  fi
 fi

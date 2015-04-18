@@ -38,8 +38,6 @@
 
 [ -z "$rdroot" ] && rdroot=rd.`uname -m`-`date +%Y%m%d`
 
-[ -z "$device" ] && device=vnd0
-
 if [ -z "$distloc" -a -z "$1" ]; then
  echo "% mkrdroot <openbsd base>"
  exit 1
@@ -76,9 +74,21 @@ tabname=`printf "%.8s" $random`
 
 . ./flashrd.sub
 
+[ -z "$device" ] && getavailvnd 1 && device=${vndevices[0]}
+
 if [ ! -f $distloc/dev/MAKEDEV ]; then
  echo % $distloc/dev/MAKEDEV not found
  exit 1
+fi
+if [ ! -f $distloc/.profile ]; then
+ if [ -f $distloc/usr/share/sysmerge/etc.tgz ]; then
+  echo % "$distloc/usr/share/sysmerge/etc.tgz must be unpacked under $distloc"
+  echo % "(such as: tar xzpf $distloc/usr/share/sysmerge/etc.tgz -C $distloc)"
+  exit 1
+ else
+  echo % $distloc does not contain an unpacked etcXX.tgz file
+  exit 1
+ fi
 fi
 
 if [ ! -f /usr/src/bin/Makefile ]; then
@@ -157,6 +167,18 @@ cd $wd
 
 echo -n "Crunchgen ($progs)"
 cgdir=$(c 2 mktemp -t -d mkrdrootcg.XXXXXX)
+
+# Ramdisk binaries aren't cleaned by crunchgen's Makefile, do them manually for NOPIE build
+for progname in ${progs}; do
+ if [ -d /usr/src/bin/${progname} ]; then
+  c 2 cd /usr/src/bin/${progname}
+  c 2 make clean > /dev/null
+ else
+  c 2 cd /usr/src/sbin/${progname}
+  c 2 make clean > /dev/null
+ fi
+done
+
 cat  <<-_EOF >>$cgdir/kcopy.conf
 srcdirs /usr/src/bin /usr/src/sbin
 
@@ -171,9 +193,22 @@ libs -lutil
 
 c 2 cd $cgdir
 c 2 "crunchgen -Em Makefile $cgdir/kcopy.conf > $TMPDIR/last.output 2>&1"
+# Ramdisk binaries need to be built NOPIE
+sed -e "/^.*cd .* && exec .* Makefile/s/exec/exec env NOPIE=/" Makefile > Makefile.tmp
+c 2 mv Makefile.tmp Makefile
 c 2 "make clean > $TMPDIR/last.output 2>&1"
 c 2 "make objs > $TMPDIR/last.output 2>&1"
 c 2 "make > $TMPDIR/last.output 2>&1"
+# Don't leave non-PIE .o hanging around
+for progname in ${progs}; do
+ if [ -d /usr/src/bin/${progname} ]; then
+  c 2 cd /usr/src/bin/${progname}
+  c 2 make clean > /dev/null
+ else
+  c 2 cd /usr/src/sbin/${progname}
+  c 2 make clean > /dev/null
+ fi
+done
 c 2 cd $wd
 echo
 

@@ -6,14 +6,12 @@
 
 date=`date +%Y%m%d`
 arch=`uname -m`
-vers=1.6
+vers=1.9
 
 typeset -x device rootdevice blocks rdroot dest vnddirs vndsize
 typeset -x tardirs tmpfsdirs totalsize
 typeset -x bytessec vnd distloc tmpmnt TMPDIR elfrdsetrootdir
 
-device=vnd3				# least likely to conflict ?
-rootdevice=vnd2				# used to mount flash vnd
 blocks=4600				# blocks to reserve for kernel ramdisk
 rdroot=rd.$arch-$date			# ramdisk root fs image
 dest=flashimg.$arch-$date		# final product
@@ -33,8 +31,13 @@ bytessec=512
 # Set to true when the device is an image file false when a device is used.
 vnd=true
 
+[ `id -u` != 0 ] && echo root required && exit 1
 
 . ./flashrd.sub
+
+getavailvnd 2
+device=${vndevices[0]}
+rootdevice=${vndevices[1]}		# used to mount flash vnd
 
 vncfgroot() {
  [[ $vnd == true ]] && c 0 vnconfig $1 $2
@@ -108,11 +111,6 @@ fi
 
 if [[ -n $elfrdsetrootdir && ! -d $elfrdsetrootdir ]]; then
  echo % elfrdsetrootdir $elfrdsetrootdir not found
-fi
-
-if [ `id -u` != 0 ]; then
- echo Sorry, mount, vnconfig, and friends require root privileges
- exit 1
 fi
 
 ###
@@ -234,7 +232,7 @@ fi
 
 ###
 #
-# Copy in fstab, etc/rc.conf.local, bin/ro bin/rw to vnd
+# Copy in flashrd items to vnd
 
 tmpmntvnd=$TMPDIR/tmpmntvnd		# openbsd.vnd image mount point
 c 2 mkdir $tmpmntvnd
@@ -267,11 +265,31 @@ fi
 
 c 3 mount /dev/$device$etcpart $tmpmntvnd
 
-c 4 cp etc/rc.local etc/rc.conf.local etc/rc.shutdown etc/rc.flashrd.conf etc/rc.flashrd.onetime etc/rc.flashrd.local etc/rc.flashrd.shutdown etc/rc.flashrd.sub $tmpmntvnd/
+echo '# Run flashrd final boot routine' >> ${tmpmntvnd}/rc.local
+c 4 echo '/etc/rc.flashrd.local' >> ${tmpmntvnd}/rc.local
+c 4 echo '/etc/rc.flashrd.shutdown' >> ${tmpmntvnd}/rc.shutdown
+c 4 cp etc/rc.flashrd.conf etc/rc.flashrd.onetime etc/rc.flashrd.local etc/rc.flashrd.shutdown etc/rc.flashrd.sub $tmpmntvnd/
 
 c 4 mv $tmpfstab $tmpmntvnd/fstab
 
 c 4 "echo $vers > $tmpmntvnd/.flashrd_version"
+
+###
+#
+# stash calls to rc.flashrd.conf in /etc/rc
+
+TMPF=`c 4 mktemp /tmp/sed.XXXXXX`
+
+# sed cmd:
+# /ifconfig -a carp carpdemote/a\
+# /etc/rc.flashrd.conf
+#
+c 4 "echo /ifconfig -g carp carpdemote/a\\\\" > $TMPF
+c 4 "echo /etc/rc.flashrd.conf" >> $TMPF
+c 4 sed -f $TMPF $tmpmntvnd/rc >$tmpmntvnd/rc.new
+c 4 mv $tmpmntvnd/rc.new $tmpmntvnd/rc
+
+c 4 rm $TMPF
 
 umountwait 3 $tmpmntvnd
 

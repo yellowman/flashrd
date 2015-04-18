@@ -15,8 +15,6 @@
 
 uname=`uname -s`
 
-[ -z "$rootdevice" ] && rootdevice=vnd3
-
 [ -z "$distloc" ] && distloc=/
 
 ###
@@ -73,10 +71,7 @@ if [ "$uname" != "OpenBSD" -a "$uname" != "Bitrig" ]; then
  exit 1
 fi
 
-if [ `id -u` != 0 ]; then
- echo Sorry, mount, vnconfig, and friends require root privileges
- exit 1
-fi
+[ `id -u` != 0 ] && echo root required && exit 1
 
 syntax()
 {
@@ -139,7 +134,11 @@ if [ ! -f $image ]; then
 fi
 
 if [ -z "$device" ]; then
- device=vnd0
+ getavailvnd 2
+ rootdevice=${vndevices[0]}
+ device=${vndevices[1]}
+else
+ [ -z "$rootdevice" ] && getavailvnd 1 && rootdevice=${vndevices[0]}
 fi
 
 if [ -z "$bytessec" ]; then
@@ -288,10 +287,12 @@ echo Installing boot blocks...
 c 4 installboot -r $NewDir $device $distloc/usr/mdec/biosboot $distloc/usr/mdec/boot
 
 echo
-echo Generate initial random seed...
+echo Generate initial random seeds...
 c 4 "mkdir -p $NewDir/etc"
-c 4 "dd if=/dev/random of=$NewDir/etc/random.seed bs=512 count=1 > /dev/null 2>&1"
-c 4 "chmod 600 $NewDir/etc/random.seed"
+c 4 "dd if=/dev/random of=$NewDir/etc/random.seed bs=512 count=1 status=none"
+c 4 chmod 600 $NewDir/etc/random.seed
+c 4 "dd if=/dev/random of=$NewDir/etc/host.random bs=65536 count=1 status=none"
+c 4 chmod 600 $NewDir/etc/host.random
 
 echo
 echo Checking filesystem...

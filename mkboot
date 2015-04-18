@@ -9,8 +9,6 @@ arch=`uname -m`
 
 [ -z "$distloc" ] && distloc=/
 
-[ -z "$rootdevice" ] && rootdevice=vnd3
-
 [ -z "$totalsize" ] && totalsize=1951488
 
 [ -z "$bytessec" ] && bytessec=512
@@ -53,6 +51,8 @@ vnuncfgroot() {
 }
 
 . ./flashrd.sub
+
+[ -z "$rootdevice" ] && getavailvnd 1 && rootdevice=${vndevices[0]}
 
 [ -z "$tmpmnt" ] && tmpmnt=$(c 0 mktemp -t -d mkboot.XXXXXX)
 
@@ -125,10 +125,12 @@ c 2 "installboot -r $tmpmnt $rootdevice $distloc/usr/mdec/biosboot $distloc/usr/
 
 c 2 mkdir $tmpmnt/new $tmpmnt/old $tmpmnt/etc
 
-echo Generate initial random seed
+echo Generate initial random seeds
 
-c 2 "dd if=/dev/random of=$tmpmnt/etc/random.seed bs=512 count=1 > $TMPDIR/last.output 2>&1"
-c 2 "chmod 600 $tmpmnt/etc/random.seed"
+c 2 "dd if=/dev/random of=$tmpmnt/etc/random.seed bs=512 count=1 status=none"
+c 2 chmod 600 $tmpmnt/etc/random.seed
+c 2 "dd if=/dev/random of=$tmpmnt/etc/host.random bs=65536 count=1 status=none"
+c 2 chmod 600 $tmpmnt/etc/host.random
 
 umountwait 1 $tmpmnt
 
