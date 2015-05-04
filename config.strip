@@ -78,3 +78,5 @@ bwi.*at pci.*
 bwi.*at cardbus.*
 udl.*at uhub.*
 wsdisplay.*at udl.*
+midi.*at envy.*
+audio.*at envy.*
