@@ -8,7 +8,7 @@ if [ ! -z "$savetardirs" ]; then
 
  for i in $savetardirs; do
   opwd=$(pwd)
-  cd /$i
+  cd /$i || continue
 
   echo tardirs: compacting $i
   rm -f .tardirs.$i
