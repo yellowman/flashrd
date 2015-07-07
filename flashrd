@@ -269,6 +269,7 @@ echo '# Run flashrd final boot routine' >> ${tmpmntvnd}/rc.local
 c 4 echo '/etc/rc.flashrd.local' >> ${tmpmntvnd}/rc.local
 c 4 echo '/etc/rc.flashrd.shutdown' >> ${tmpmntvnd}/rc.shutdown
 c 4 cp etc/rc.flashrd.conf etc/rc.flashrd.onetime etc/rc.flashrd.local etc/rc.flashrd.shutdown etc/rc.flashrd.sub $tmpmntvnd/
+c 4 cp etc/mtree.flashrd.conf $tmpmntvnd/mtree/flashrd.conf
 
 c 4 mv $tmpfstab $tmpmntvnd/fstab
 
