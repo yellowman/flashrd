@@ -7,6 +7,137 @@
 # Chris Cappuccio <chris@nmedia.net>
 #
 
+. ./etc/rc.flashrd.sub
+
+# Args: 1 - etc mnt path, 2 - resolv.conf temp location, 3 - c-level
+configetc() {
+ ###
+ #
+ # Customize etc
+
+ # US/Pacific by default for flashrd!
+ ln -fs /usr/share/zoneinfo/US/Pacific ${1}/localtime
+ # random.seed rests at /flash/etc/random.seed
+ ln -fs /flash/etc/random.seed ${1}/random.seed
+
+ if [ ! -f ${1}/myname ]; then
+  # No name? Let's call it 'flashrd' for now...
+  c ${3} echo flashrd > ${1}/myname
+
+  if [ -f ${1}/hosts ]; then
+   # Add 'flashrd' to the hosts file
+   c ${3} sed -e 's/localhost/localhost flashrd/' < ${1}/hosts > ${1}/hosts.new
+   c ${3} mv ${1}/hosts.new ${1}/hosts
+  else
+   # Create a basic hosts file
+   c ${3} echo "127.0.0.1	localhost flashrd" > ${1}/hosts
+   c ${3} echo "::1	localhost flashrd" >> ${1}/hosts
+  fi
+
+ fi
+
+ # Don't relocate resolv.conf if etc is a tardir
+ etctardir=0
+ for etccheck in ${tardirs}; do
+  if [ ${etccheck} == "etc" ]; then
+   etctardir=1
+  fi
+ done
+
+ for zz in $tardirs; do
+  if [ $zz == var -a ${etctardir} -eq 0 ]; then
+   # If /var is temporal, we want to move resolv.conf to it and static link
+   echo -n " (resolv.conf)"
+   [ -f ${1}/resolv.conf ] && c ${3} mv ${1}/resolv.conf ${2}
+   c ${3} ln -s /var/db/resolv.conf ${1}
+  fi
+ done
+
+ ###
+ #
+ # Build fstab
+
+ tmpfstab=$TMPDIR/fstab
+
+ cat <<-EOF >$tmpfstab
+	/dev/rd0a	/	ffs	rw	1 0
+	EOF
+
+ x=0
+ for i in $vnddirs; do
+  case $i {
+  sbin)
+   opts=noatime,nodev
+   ;;
+  usr)
+   opts=noatime,nodev
+   ;;
+  *)
+   opts=noatime,nodev,nosuid
+   ;;
+  }
+  echo  "/dev/vnd0${part[$x]}	/$i	ffs	rw,$opts	1 0" >> $tmpfstab
+  ((x++))
+ done
+
+ x=0
+ if [ ! -z "$tardirs" ]; then
+  for i in $tardirs; do
+   echo "swap	/$i	tmpfs	rw,noatime,nodev,nosuid,-s${tarsize[$x]}	0 0" >> $tmpfstab
+   ((x++))
+  done
+ fi
+
+ if [ $x -ne ${#tarsize[*]} ]; then
+  echo "% \$tardirs count ($x) different than tarsize array count (${#tarsize[*]}), aborting"
+  2; 1; 0;
+ fi
+
+ x=0
+ if [ ! -z "$tmpfsdirs" ]; then
+  for i in $tmpfsdirs; do
+   echo "swap		/$i	tmpfs	rw,noatime,nodev,nosuid,-s${tmpfssize[$x]}	0 0" >> $tmpfstab
+   ((x++))
+  done
+ fi
+
+ if [ $x -ne ${#tmpfssize[*]} ]; then
+  echo "% \$tmpfsdirs count ($x) different than tmpfssize array count (${#tmpfssize[*]}), aborting"
+  2; 1; 0;
+ fi
+
+ ###
+ #
+ # copy etc files
+
+ echo '# Run flashrd final boot routine' >> ${1}/rc.local
+ c ${3} echo '/etc/rc.flashrd.local' >> ${1}/rc.local
+ c ${3} echo '/etc/rc.flashrd.shutdown' >> ${1}/rc.shutdown
+ c ${3} cp etc/rc.flashrd.conf etc/rc.flashrd.onetime etc/rc.flashrd.local etc/rc.flashrd.shutdown etc/rc.flashrd.sub ${1}/
+
+ c ${3} mv ${tmpfstab} ${1}/fstab
+
+ c ${3} "echo ${vers} > ${1}/.flashrd_version"
+
+ ###
+ #
+ # stash calls to rc.flashrd.conf in /etc/rc
+
+ TMPF=`c ${3} mktemp /tmp/sed.XXXXXX`
+
+ # sed cmd:
+ # /ifconfig -a carp carpdemote/a\
+ # /etc/rc.flashrd.conf
+ #
+ c ${3} "echo /ifconfig -g carp carpdemote/a\\\\" > $TMPF
+ c ${3} "echo /etc/rc.flashrd.conf" >> $TMPF
+ c ${3} sed -f $TMPF ${1}/rc >${1}/rc.new
+ c ${3} mv ${1}/rc.new ${1}/rc
+
+ c ${3} rm $TMPF
+
+}
+
 if [ -z "$vnddirs" ]; then
  echo vnddirs not specified, aborting
  exit 1
@@ -47,15 +178,6 @@ else
  fi
 fi
 
-if [ ! -z "$vndsize" ]; then
- # build vndsizeA array from $vndsize
- x=0
- for i in $vndsize; do
-  vndsizeA[$x]=$i
-  ((x++))
- done
-fi
-
 y=0
 for i in $vnddirs; do
  if [ ! -d $distloc/$i ]; then
@@ -65,8 +187,8 @@ for i in $vnddirs; do
  ((y++))
 done
 
-if [ $y -ne $x ]; then
- echo "% \$vnddirs count ($y) different than \$vndsize count ($x), aborting"
+if [ $y -ne ${#vndsize[*]} ]; then
+ echo "% \$vnddirs count ($y) different than \$vndsize count (${#vndsize[*]}), aborting"
  exit 1
 fi
 
@@ -145,12 +267,12 @@ for i in $vnddirs; do
   ((total[$x]*=2))
  fi
 
- if [ ${vndsizeA[$x]} != "auto" ]; then
-  if [ ${total[$x]} -le `mbytes2sectors ${vndsizeA[$x]}` ]; then
-   total[$x]=`mbytes2sectors ${vndsizeA[$x]}`
+ if [ ${vndsize[$x]} != "auto" ]; then
+  if [ ${total[$x]} -le `mbytes2sectors ${vndsize[$x]}` ]; then
+   total[$x]=`mbytes2sectors ${vndsize[$x]}`
   else
    # Auto-calculated size was more than suggested size.  Go with auto-calculation.
-   echo -n " (OVERRIDE ${vndsizeA[$x]}MB)"
+   echo -n " (OVERRIDE ${vndsize[$x]}MB)"
   fi
  fi
  # report results
@@ -210,61 +332,37 @@ c 1 mv /etc/disktab.${tabname} /etc/disktab
 
 ###
 #
-# newfs, copy
+# newfs, copy, customize /etc and /bin
 
-x=0
+vlc=0
 
 resolv=$TMPDIR/resolv.conf
 
-for i in $vnddirs; do
- echo -n Finalizing /$i
+for vl in $vnddirs; do
+ echo -n Finalizing /${vl}
 
  echo -n " newfs"
- c 1 "newfs -m 1 -o space /dev/r${device}${part[$x]} > $TMPDIR/last.output 2>&1"
+ c 1 "newfs -m 1 -o space /dev/r${device}${part[$vlc]} > $TMPDIR/last.output 2>&1"
 
- c 1 mount /dev/${device}${part[$x]} $tmpmntdir
+ c 1 mount /dev/${device}${part[$vlc]} $tmpmntdir
 
  echo -n " copy"
- c 2 tar cf - -C $distloc/$i . | c 2 tar xpf - -C $tmpmntdir
+ c 2 tar cf - -C $distloc/${vl} . | c 2 tar xpf - -C $tmpmntdir
 
- if [ $i == etc ]; then
+ if [ ${vl} == "etc" ]; then
 
-  # US/Pacific by default for flashrd!
-  ln -fs /usr/share/zoneinfo/US/Pacific ${tmpmntdir}/localtime
-  # random.seed rests at /flash/etc/random.seed
-  ln -fs /flash/etc/random.seed ${tmpmntdir}/random.seed
+  configetc ${tmpmntdir} ${resolv} 2
 
-  if [ ! -f ${tmpmntdir}/myname ]; then
-   # No name? Let's call it 'flashrd' for now...
-   c 2 echo flashrd > ${tmpmntdir}/myname
+ elif [ ${vl} == "bin" ]; then
 
-   if [ -f ${tmpmntdir}/hosts ]; then
-    # Add 'flashrd' to the hosts file
-    c 2 sed -e 's/localhost/localhost flashrd/' < ${tmpmntdir}/hosts > ${tmpmntdir}/hosts.new
-    c 2 mv ${tmpmntdir}/hosts.new ${tmpmntdir}/hosts
-   else
-    # Create a basic hosts file
-    c 2 echo "127.0.0.1	localhost flashrd" > ${tmpmntdir}/hosts
-    c 2 echo "::1	localhost flashrd" >> ${tmpmntdir}/hosts
-   fi
-
-  fi
-
-  for zz in $tardirs; do
-   if [ $zz == var ]; then
-    # If /var is temporal, we want to move resolv.conf to it and static link
-    echo -n " (resolv.conf)"
-    [ -f ${tmpmntdir}/resolv.conf ] && c 2 mv ${tmpmntdir}/resolv.conf ${resolv}
-    c 2 ln -s /var/db/resolv.conf ${tmpmntdir}
-   fi
-  done
+  c 2 cp bin/ro bin/rw ${tmpmntdir}
 
  fi
 
  umountwait 1 $tmpmntdir
 
  echo
- ((x++))
+ ((vlc++))
 done
 
 c 0 vnconfig -u $device
@@ -274,10 +372,10 @@ c 0 vnconfig -u $device
 # TAR loop
 
 if [ ! -z "$tardirs" ]; then
- for i in $tardirs; do
-  echo -n Creating $i.tar
+ for tl in $tardirs; do
+  echo -n Creating ${tl}.tar
 
-  set -- $(c 0 du -s $distloc/$i)
+  set -- $(c 0 du -s $distloc/${tl})
   size=$1
   if [ `sectors2mbytes $size` -ge 1 ]; then
    echo -n " `sectors2mbytes $size`"MB files
@@ -286,8 +384,8 @@ if [ ! -z "$tardirs" ]; then
   fi
 
   echo -n " copy"
-  if [ $i == var ]; then
-  c 0 cp -Rp $distloc/$i $TMPDIR/var-copy
+  if [ ${tl} == var ]; then
+  c 0 cp -Rp $distloc/${tl} $TMPDIR/var-copy
   c 0 mkdir -p $TMPDIR/var-copy/db
    if [ -f $resolv ]; then
     echo -n " (resolv.conf)"
@@ -295,9 +393,13 @@ if [ ! -z "$tardirs" ]; then
    fi
   echo -n " (host.random)"
   c 0 ln -s /flash/etc/host.random $TMPDIR/var-copy/db/host.random
-  c 0 tar cf $tmpmnt/$i.tar -C $TMPDIR/var-copy .
+  c 0 tar cf $tmpmnt/${tl}.tar -C $TMPDIR/var-copy .
+  elif [ ${tl} == "etc" ]; then
+   c 0 cp -Rp ${distloc}/${tl} ${TMPDIR}/etc-copy
+   configetc ${TMPDIR}/etc-copy ${resolv} 0
+   c 0 tar cf ${tmpmnt}/${tl}.tar -C $TMPDIR/etc-copy .
   else
-   c 0 tar cf $tmpmnt/$i.tar -C $distloc/$i .
+   c 0 tar cf $tmpmnt/${tl}.tar -C $distloc/${tl} .
   fi
   echo
 
