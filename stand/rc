@@ -54,7 +54,14 @@ mkvndmnt()
    fi
   fi
 
-  if ! mount -o noatime /dev/$dev /$i; then
+  # /etc is held open by /etc/rc umount/mount -a, give it the correct mount opts
+  if [ ${i} == "etc" ]; then
+   NOSUID=",nosuid"
+  else
+   NOSUID=
+  fi
+
+  if ! mount -o noatime,nodev${NOSUID} /dev/$dev /$i; then
    fail=1
   fi
 
