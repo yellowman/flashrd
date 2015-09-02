@@ -8,8 +8,8 @@ date=`date +%Y%m%d`
 arch=`uname -m`
 vers=1.9
 
-typeset -x device rootdevice blocks rdroot dest vnddirs vndsize
-typeset -x tardirs tmpfsdirs totalsize
+typeset -x device rootdevice blocks rdroot dest vnddirs
+typeset -x tardirs tmpfsdirs totalsize vers
 typeset -x bytessec vnd distloc tmpmnt TMPDIR elfrdsetrootdir
 
 blocks=4600				# blocks to reserve for kernel ramdisk
@@ -175,140 +175,6 @@ c 2 ./mkkern
 # generate vnd, tar files
 
 c 2 ./mkdist
-
-###
-#
-# Build fstab
-
-tmpfstab=$TMPDIR/fstab
-
-cat <<-EOF >$tmpfstab
-	/dev/rd0a	/	ffs	rw	1 0
-	EOF
-
-x=0
-for i in $vnddirs; do
- case $i {
- sbin)
-  opts=noatime,nodev
-  ;;
- usr)
-  opts=noatime,nodev
-  ;;
- *)
-  opts=noatime,nodev,nosuid
-  ;;
- }
- echo  "/dev/vnd0${part[$x]}	/$i	ffs	rw,$opts	1 0" >> $tmpfstab
- ((x++))
-done
-
-x=0
-if [ ! -z "$tardirs" ]; then
- for i in $tardirs; do
-  echo "swap	/$i	tmpfs	rw,nodev,nosuid,-s${tarsize[$x]}	0 0" >> $tmpfstab
-  ((x++))
- done
-fi
-
-if [ $x -ne ${#tarsize[*]} ]; then
- echo "% \$tardirs count ($x) different than tarsize array count ${#tarsize[*]}, aborting"
- 2; 1; 0;
-fi
-
-x=0
-if [ ! -z "$tmpfsdirs" ]; then
- for i in $tmpfsdirs; do
-  echo
-  echo "swap		/$i	tmpfs	rw,nodev,nosuid,-s${tmpfssize[$x]}	0 0" >> $tmpfstab
-  ((x++))
- done
-fi
-
-if [ $x -ne ${#tmpfssize[*]} ]; then
- echo "% \$tmpfsdirs count ($x) different than tmpfssize array count ${#tmpfssize[*]}, aborting"
- 2; 1; 0;
-fi
-
-###
-#
-# Copy in flashrd items to vnd
-
-tmpmntvnd=$TMPDIR/tmpmntvnd		# openbsd.vnd image mount point
-c 2 mkdir $tmpmntvnd
-
-c 2 vnconfig $device $tmpmnt/openbsd.vnd
-
-###
-#
-# map $vnddirs etc to a partition label
-
-x=0
-for i in $vnddirs; do
- if [ $i == etc ]; then
-  etcpart=${part[$x]}
- fi
- if [ $i == bin ]; then
-  binpart=${part[$x]}
- fi
- ((x++))
-done
-
-if [ -z "$etcpart" -o -z "$binpart" ]; then
- echo "% missing etc and/or bin in \$vnddirs ($vnddirs) aborting"
- 3; 2; 1; 0;
-fi
-
-###
-#
-# mount, copy, umount etc files
-
-c 3 mount /dev/$device$etcpart $tmpmntvnd
-
-echo '# Run flashrd final boot routine' >> ${tmpmntvnd}/rc.local
-c 4 echo '/etc/rc.flashrd.local' >> ${tmpmntvnd}/rc.local
-c 4 echo '/etc/rc.flashrd.shutdown' >> ${tmpmntvnd}/rc.shutdown
-c 4 cp etc/rc.flashrd.conf etc/rc.flashrd.onetime etc/rc.flashrd.local etc/rc.flashrd.shutdown etc/rc.flashrd.sub $tmpmntvnd/
-c 4 cp etc/mtree.flashrd.conf $tmpmntvnd/mtree/flashrd.conf
-
-c 4 mv $tmpfstab $tmpmntvnd/fstab
-
-c 4 "echo $vers > $tmpmntvnd/.flashrd_version"
-
-###
-#
-# stash calls to rc.flashrd.conf in /etc/rc
-
-TMPF=`c 4 mktemp /tmp/sed.XXXXXX`
-
-# sed cmd:
-# /ifconfig -a carp carpdemote/a\
-# /etc/rc.flashrd.conf
-#
-c 4 "echo /ifconfig -g carp carpdemote/a\\\\" > $TMPF
-c 4 "echo /etc/rc.flashrd.conf" >> $TMPF
-c 4 sed -f $TMPF $tmpmntvnd/rc >$tmpmntvnd/rc.new
-c 4 mv $tmpmntvnd/rc.new $tmpmntvnd/rc
-
-c 4 rm $TMPF
-
-umountwait 3 $tmpmntvnd
-
-###
-#
-# mount, copy, umount bin files
-
-c 3 mount /dev/$device$binpart $tmpmntvnd
-
-c 4 cp bin/ro bin/rw $tmpmntvnd/
-
-umountwait 3 $tmpmntvnd
-
-###
-#
-# done with the main disk vnd
-
-c 2 vnconfig -u $device
 
 umountwait 1 $tmpmnt
 

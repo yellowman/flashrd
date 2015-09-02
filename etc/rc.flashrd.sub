@@ -15,11 +15,15 @@ set -A tmpfssize 16M			# dir sizes
 # Used in image creation and runtime:
 #
 vnddirs="root bin etc sbin usr"
-vndsize="50 auto auto auto auto"	# min partition sizes in MBytes (or auto)
+set -A vndsize 50 auto auto auto auto	# min partition sizes in MBytes (or auto)
 #
 # During image creation ONLY (flashrd process), vnddirs MUST match
 # vnddirs setting in RAMDISK stand/rc file. (If you change it here
 # and run flashrd, you MUST change stand/rc as well.)
+#
+# etc *can* be used as a tardir, but must be set both below and in the
+# special ${etctardirs} variable in stand/rc. It should also be removed
+# from vnddirs above.
 #
 # During image runtime ONLY, to exclude certain vnd partitions from
 # being set to read-write or read-only during 'rw' and 'ro' commands,

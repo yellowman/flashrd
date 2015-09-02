@@ -6,7 +6,7 @@
 # flashrd quirks:
 #
 # - real /etc/rc has umount -a, so tmpfs untars are done
-#    in /etc/rc.conf.local, not here
+#    by rc.flashrd.conf in /etc/rc, not here
 # - even though everything is mounted by the real
 #    /etc/rc via /etc/fstab, /etc must be mounted before
 #    it is mounted by /etc/rc and parts of /sbin and /bin
@@ -24,6 +24,8 @@
 #
 vnddirs="root bin etc sbin usr" # vnd0a, vnd0d, vnd0e, vnd0f, vnd0g
 set -A part a d e f g h i j k l m n o p
+etctardirs="" # only etc is supported, others will be unmounted by /etc/rc
+etcsize=16M
 vnd=vnd0
 disk=auto
 
@@ -52,7 +54,14 @@ mkvndmnt()
    fi
   fi
 
-  if ! mount -o noatime /dev/$dev /$i; then
+  # /etc is held open by /etc/rc umount/mount -a, give it the correct mount opts
+  if [ ${i} == "etc" ]; then
+   NOSUID=",nosuid"
+  else
+   NOSUID=
+  fi
+
+  if ! mount -o noatime,nodev${NOSUID} /dev/$dev /$i; then
    fail=1
   fi
 
@@ -69,6 +78,20 @@ unvndmnt()
  done
 
  vnconfig -u $vnd
+}
+
+mketcmnt()
+{
+ for i in ${etctardirs}; do
+  if [ ! -f /${i}/.tardirs.${i} ]; then
+   if mount -o rw,noatime,nodev,nosuid,-s${etcsize} -t tmpfs swap /${i}; then
+    echo "bootstrap: extracting ${i}"
+    tar xpf /flash/${i}.tar -C /${i}
+    # touch is not yet available
+    echo -n > /${i}/.tardirs.${i}
+   fi
+  fi
+ done
 }
 
 ###
@@ -133,6 +156,7 @@ if ! mount -o noatime,nodev,nosuid$rdonly /dev/$disk /flash; then
 fi
 
 mkvndmnt /flash
+mketcmnt
 
 if test "$fail" == "1"; then
  if test -f /flash/old/openbsd.vnd; then
