@@ -115,6 +115,7 @@ configetc() {
  c ${3} echo '/etc/rc.flashrd.shutdown' >> ${1}/rc.shutdown
  c ${3} cp etc/rc.flashrd.conf etc/rc.flashrd.onetime etc/rc.flashrd.local etc/rc.flashrd.shutdown etc/rc.flashrd.sub ${1}/
 
+ c ${3} cp etc/mtree.flashrd.conf ${1}/mtree/flashrd.conf
  c ${3} mv ${tmpfstab} ${1}/fstab
 
  c ${3} "echo ${vers} > ${1}/.flashrd_version"
