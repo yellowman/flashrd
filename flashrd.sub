@@ -58,7 +58,7 @@ umountwait() {
 
 t2() {
  if [ -z "$1" ]; then
-  usage
+  echo "t2: argument missing"
   exit 1
  fi
 }
@@ -90,4 +90,20 @@ getavailvnd() {
    echo "Not enough vnd device(s) available (${#vndevices[@]} < $1)"
    exit 1
  fi
+}
+
+###
+#
+# Return a directory tree size in blocks
+
+getsize() {
+  if [ -z "$1" ]; then
+    echo "getsize: argument missing"
+  fi
+  if [ ! -d "$1" ]; then
+    echo "getsize: the argument must be a directory"
+  fi
+  unset BLOCKSIZE
+  set -- $(du -s $1)
+  echo $1
 }
