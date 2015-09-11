@@ -7,19 +7,19 @@
 if [ ! -z "$savetardirs" ]; then
 
  for i in $savetardirs; do
+  opwd=$(pwd)
+  cd /$i || continue
 
   echo tardirs: compacting $i
-  rm -f /$i/.tardirs.$i
+  rm -f .tardirs.$i
 
-  # Get rid of sockets before shutdown (they will skew tar's return value)
-  find /$i -type s -exec rm {} \;
-
-  if ! tar cf /flash/$i.tar.part -C /$i .; then
+  # Only save the files when compating the current tardir.
+  if ! find . -type f -o -type l | xargs tar cf /flash/$i.tar.part -I -; then
    echo tardirs: compacting $i failed, saved at /flash/$i.tar.part
   else
    mv /flash/$i.tar.part /flash/$i.tar
   fi
-
+  cd $opwd
  done
 
  # Wait for slow flash. Likely unnecessary.
