@@ -254,8 +254,7 @@ for i in $vnddirs; do
 
  echo -n Analyzing /$i
 
- set -- $(c 0 du -s $distloc/$i)
- size=$1
+ size=$(c 0 getsize $distloc/$i)
 
  # du outputs 512 byte blocks
  [[ $factor -gt 1 ]] && ((size /= factor))
@@ -376,8 +375,7 @@ if [ ! -z "$tardirs" ]; then
  for tl in $tardirs; do
   echo -n Creating ${tl}.tar
 
-  set -- $(c 0 du -s $distloc/${tl})
-  size=$1
+  size=$(c 0 getsize $distloc/${tl})
   if [ `sectors2mbytes $size` -ge 1 ]; then
    echo -n " `sectors2mbytes $size`"MB files
   else
