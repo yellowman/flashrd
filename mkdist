@@ -287,7 +287,7 @@ done
 # Setup openbsd.vnd with a little bit of zeros
 
 echo -n "Size openbsd.vnd `sectors2mbytes $disktotal`MB "
-c 0 "dd if=/dev/zero of=$tmpmnt/openbsd.vnd bs=512 count=512 > $TMPDIR/last.output 2>&1"
+c 0 "dd if=/dev/zero of=${tmpmnt}/openbsd.vnd bs=512 count=0 seek=${disktotal} > $TMPDIR/last.output 2>&1"
 echo
 
 sectorstrack=64
