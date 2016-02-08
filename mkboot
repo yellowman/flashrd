@@ -46,6 +46,7 @@ vnuncfgroot() {
  vnuncfgroot
 }
 0() {
+ cp /etc/disktab.${tabname} /tmp/test
  [[ -f /etc/disktab.${tabname} ]] && mv /etc/disktab.${tabname} /etc/disktab
  exit 1
 }
@@ -64,8 +65,7 @@ tmplabel=$(c 0 mktemp -t mkbootlabel.XXXXXX)
 
 if [[ $vnd == true ]]; then
 
- # Create vnd image, must zero out the first few sectors or else disklabel freaks out...
- c 0 "dd if=/dev/zero bs=512 count=512 of=$dest > $TMPDIR/last.output 2>&1"
+ c 0 "dd if=/dev/zero of=${dest} bs=512 count=0 seek=${totalsize} > $TMPDIR/last.output 2>&1"
  cylinders=$((totalsize / 64))
  trackscylinder=1
  sectorstrack=64
