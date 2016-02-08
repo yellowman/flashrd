@@ -244,7 +244,7 @@ c 2 cp $NewLabel /etc/disktab
 
 if [ -z "$alt" ]; then
  echo Creating new image...
- c 2 dd if=/dev/zero bs=512 count=512 of=$NewImg >/dev/null
+ c 2 dd if=/dev/zero of=${NewImg} bs=512 count=0 seek=${totalsize} >/dev/null
 
  c 2 vnconfig -t vnd-${tabname} $device $NewImg
  
