@@ -171,4 +171,4 @@ echo
 cd $wd
 c 0 $elfrdsetrootdir/elfrdsetroot $tmpmnt/bsd $rdroot
 c 0 $elfrdsetrootdir/elfrdsetroot $tmpmnt/bsd.mp $rdroot
-c 0 rm $elfrdsetrootdir/elfrdsetroot
+c 0 rm $elfrdsetrootdir/elfrdsetroot $rdroot
