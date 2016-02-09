@@ -6,7 +6,7 @@
 
 date=`date +%Y%m%d`
 arch=`uname -m`
-vers=1.9
+vers=2.0
 
 typeset -x device rootdevice blocks rdroot dest vnddirs
 typeset -x tardirs tmpfsdirs totalsize vers
