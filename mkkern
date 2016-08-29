@@ -92,6 +92,7 @@ fi
 #	echo "option	NKL2_KIMG_ENTRIES=16" >> $kernsrc/conf/FLASHRD
 #fi
 cat >> $kernsrc/conf/FLASHRD <<-EOF
+	option  TMPFS
 	option	RAMDISK_HOOKS
 	option	MINIROOTSIZE=$blocks
 	config	bsd	root on rd0a swap on rd0b and wd0b and sd0b
