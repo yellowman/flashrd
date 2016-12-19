@@ -20,18 +20,24 @@ Use one of:
     -d | -disk "dev"        Configure an attached disk
     -i | -image "filename"  Configure an image
 Options:
-    -r "filename"       rdrootfs image (needed only to change ramdisk)
-    -e "dir"		directory where elfrdsetroot.c is located (only with -r)
-    -c "speed"		set com0 as console at speed "speed"
-    -m 			set bsd.mp as primary kernel
-    -o "onetime.tgz"    install specified file on the flash as onetime.tgz
-    -s 			set bsd.sp as primary kernel
-    -t "tzfile"		set timezone using a timezone file fromfrom
-			/usr/share/zoneinfo
-    -k "keyboard"	configure alternative keyboard encoding
-    -dns "dns server"   list of DNS servers (separated by spaces)
-    -ntp "ntp servers"  list of NTP servers (separated by spaces)
-    -hostname "name"	hostname of target host
+    -r "filename"       rdrootfs image (needed only to change ramdisk).
+    -e "dir"            Directory where elfrdsetroot.c is located (only with -r).
+    -c "speed"          Set com0 as console at speed "speed".
+    -m                  Set bsd.mp as primary kernel.
+    -o "onetime.tgz"    Install specified file on the flash as onetime.tgz.
+    -s                  Set bsd.sp as primary kernel.
+    -t "tzfile"         Set timezone using a timezone file from
+                        /usr/share/zoneinfo
+    -k "keyboard"       Configure alternative keyboard encoding.
+    -dns "dns server"   List of DNS servers (separated by spaces).
+    -no-dns             Don't configure DNS settings.
+    -ntp "ntp servers"  List of NTP servers (separated by spaces).
+    -no-ntp             Don't configure NTP settings 
+    -hostname "name"    Hostname of target host. Will prompt to enter hostname if
+                        not supplied.
+    -no-hostname        Don't configure a hostname.
+    -encpass "string"   Encrypted password to use for the root account. See
+                        encrypt(1). Will prompt to enter password if not supplied.
 
 EOF
 }
@@ -62,8 +68,12 @@ do
   -s|-sp)	kernel="bsdsp"; shift;;
   -t|-tz)	t2 "$2"; tzfile="$2"; shift 2;;
   -dns)		t2 "$2"; dnsservers="$2"; shift 2;;
+  -no-dns)	nodns="1"; shift;;
   -ntp)		t2 "$2"; ntpservers="$2"; shift 2;;
+  -no-ntp)	nontp="1"; shift;;
   -hostname)	t2 "$2"; hostname="$2"; shift 2;;
+  -no-hostname)	nohostname="1"; shift;;
+  -encpass)	t2 "$2"; encpass="$2"; shift 2;;
   -e)		t2 "$2"; elfrdsetrootdir="$2"; shift 2;;
   -k)		t2 "$2"; keyboardencoding="$2"; shift 2;;
 
@@ -74,6 +84,21 @@ do
 done
 
 # checking arguments
+
+if [[ nodns == "1" && -n $dnsservers ]]; then
+ echo "Option -dns is not valid in conjunction with -no-dns"
+ exit 1
+fi
+
+if [[ $nontp == "1" && -n $ntpservers ]]; then
+ echo "Option -ntp is not valid in conjunction with -no-ntp"
+ exit 1
+fi
+
+if [[ $nohostname == "1" && -n $hostname ]]; then
+ echo "Option -hostname not valid in conjunction with -no-hostname"
+ exit 1
+fi
 
 if [[ -n $elfrdsetrootdir && -z $rdfs ]]; then
  echo "Option -e only valid in conjunction with -r"
@@ -364,13 +389,16 @@ getname()
  fi
 }
 
-if [ -z "$hostname" ]; then
- echo
- echo Please assign a system hostname...
- getname
-fi
+if [[ $nohostname != "1" ]]; then
 
-echo $hostname > $tmpmntvnd/myname
+ if [ -z "$hostname" ]; then
+  echo
+  echo Please assign a system hostname...
+  getname
+ fi
+ 
+ echo $hostname > $tmpmntvnd/myname
+fi
 
 ###
 #
@@ -423,7 +451,7 @@ fi
 #
 # steal ntp servers from local ntpd.conf!
 
-if [ -f $tmpmntvnd/ntpd.conf ]; then
+if [[ -f $tmpmntvnd/ntpd.conf && $nontp != "1" ]]; then
  if [ -z "$ntpservers" ]; then
   ntpservers=`awk 'BEGIN {ORS=" "} /^server/{print $2}' /etc/ntpd.conf`
   read nntpservers?"NTP Servers: [$ntpservers] "
@@ -446,32 +474,34 @@ fi
 #
 # steal dns servers from local resolv.conf!
 
-if [ -z "$dnsservers" ]; then
- dnsservers=`awk 'BEGIN {ORS=" "} /^nameserver/{print $2}' /etc/resolv.conf`
- read ndnsservers?"DNS Servers: [$dnsservers] "
- if [ ! -z "$ndnsservers" ]; then
-  dnsservers="$ndnsservers"
+if [[ $nodns != "1" ]]; then
+ if [ -z "$dnsservers" ]; then
+  dnsservers=`awk 'BEGIN {ORS=" "} /^nameserver/{print $2}' /etc/resolv.conf`
+  read ndnsservers?"DNS Servers: [$dnsservers] "
+  if [ ! -z "$ndnsservers" ]; then
+   dnsservers="$ndnsservers"
+  fi
  fi
-fi
 
-if [ ! -z "$dnsservers" ]; then
- echo Configuring resolv.conf for DNS servers $dnsservers
- resolv=$TMPDIR/resolv.conf
- c 4 "echo lookup file bind > ${resolv}"
- for i in $dnsservers; do
-  c 4 "echo nameserver $i >> ${resolv}"
- done
- if [ -f $tmpmnt/var.tar ]; then
-  c 4 mkdir $TMPDIR/var-copy
-  c 4 tar xpf $tmpmnt/var.tar -C $TMPDIR/var-copy
-  c 4 mkdir -p $TMPDIR/var-copy/db
-  c 4 mv ${resolv} $TMPDIR/var-copy/db/resolv.conf
-  c 4 tar cf $tmpmnt/var.tar -C $TMPDIR/var-copy .
+ if [ ! -z "$dnsservers" ]; then
+  echo Configuring resolv.conf for DNS servers $dnsservers
+  resolv=$TMPDIR/resolv.conf
+  c 4 "echo lookup file bind > ${resolv}"
+  for i in $dnsservers; do
+   c 4 "echo nameserver $i >> ${resolv}"
+  done
+  if [ -f $tmpmnt/var.tar ]; then
+   c 4 mkdir $TMPDIR/var-copy
+   c 4 tar xpf $tmpmnt/var.tar -C $TMPDIR/var-copy
+   c 4 mkdir -p $TMPDIR/var-copy/db
+   c 4 mv ${resolv} $TMPDIR/var-copy/db/resolv.conf
+   c 4 tar cf $tmpmnt/var.tar -C $TMPDIR/var-copy .
+  else
+   c 4 mv ${resolv} ${tmpmntvnd}/resolv.conf
+  fi
  else
-  c 4 mv ${resolv} ${tmpmntvnd}/resolv.conf
+  echo Failed to configure nameservers, you must manually configure /etc/resolv.conf
  fi
-else
- echo Failed to configure nameservers, you must manually configure /etc/resolv.conf
 fi
 
 ###
