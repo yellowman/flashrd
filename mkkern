@@ -149,7 +149,12 @@ if grep "make clean" $T >/dev/null; then
 fi
 echo -n " (make)"
 c 0 "make ${ALTCC}-j$(($(sysctl -n hw.ncpu) + 1))> $TMPDIR/last.output 2>&1"
-c 0 cp bsd $tmpmnt/bsd
+# since openbsd 6.1 the bsd kernel is in the folder obj
+if [[ -f bsd ]] ; then
+ c 0 cp bsd $tmpmnt/bsd
+elif [[ -f obj/bsd ]] ; then
+ c 0 cp obj/bsd $tmpmnt/bsd
+fi
 echo
 
 echo -n Compiling FLASHRD.MP kernel
@@ -162,7 +167,12 @@ if grep "make clean" $TMP >/dev/null; then
 fi
 echo -n " (make)"
 c 0 "make ${ALTCC}-j$(($(sysctl -n hw.ncpu) + 1))> $TMPDIR/last.output 2>&1"
-c 0 cp bsd $tmpmnt/bsd.mp
+# since openbsd 6.1 the bsd kernel is in the folder obj
+if [[ -f bsd ]] ; then
+ c 0 cp bsd $tmpmnt/bsd
+elif [[ -f obj/bsd ]] ; then
+ c 0 cp obj/bsd $tmpmnt/bsd.mp
+fi
 echo
 
 ###
